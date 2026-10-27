@@ -1,6 +1,6 @@
 # Java System Aggregator Microservice
 **Author:** Alexander Kuziv  
-**Project:** Secure Credit Hub
+**Project:** <a href="https://github.com/makklays/secure-credit-hub">Secure Credit Hub</a>
 
 ## Overview
 The **Java System Aggregator Microservice** acts as the high-performance data-orchestration engine within the **Secure Credit Hub** ecosystem. Positioned directly behind the API Gateway, its primary responsibility is to fetch, aggregate, transform, and normalize scattered financial, currency, and user data from multiple isolated domain microservices.
