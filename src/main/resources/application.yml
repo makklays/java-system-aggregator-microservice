@@ -1,0 +1,102 @@
+
+# Список микросервисов, на которые будет перенаправлять запросы API Gateway.
+microservices:
+  oauth2-url: ${OAUTH2_SERVICE_URL:http://oauth2-container:8090}
+  currency-url: ${CURRENCIES_SERVICE_URL:http://currencies-container:8091}
+  credit-cards-url: ${CREDIT_CARD_SERVICE_URL:http://credit-card-container:8092}
+  payments-url: ${PAYMENTS_SERVICE_URL:http://payments-container:8093}
+  monitoring-url: ${MONITORING_SERVICE_URL:http://monitoring-container:8094}
+  aggregate-url: ${AGGREGATE_SERVICE_URL:http://aggregate-container:8095}
+
+spring:
+  application:
+    name: aggregate-api
+  profiles:
+    active: prod
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.r2dbc.R2dbcDataAutoConfiguration
+
+  cloud:
+    gateway:
+      routes:
+        # 1. Роутинг на сервис Авторизации (OAuth2)
+        - id: oauth2-route
+          # Перенаправляем на имя докер-контейнера сервиса авторизации
+          uri: ${microservices.oauth2-url}
+          predicates:
+            - Path=/aggregate/v1/auth/**, /oauth2/**
+          #  - Method=GET,POST
+          #  - Header=X-API-VERSION, v2     # Дополнительные настройки безопасности: шлюз вернет ошибку 404 Not Found.
+          # Он откажется перенаправлять запрос, пока вы принудительно не добавите в HTTP-заголовки (Headers) строчку X-API-VERSION: v1.
+          #filters: # пример переделки url если нужно
+          #  - RewritePath=/api/users/(?<segment>.*), /users/${segment}    # /api/users/1 → /users/1
+
+        # 2. Роутинг на сервис Валют (Currencies)
+        - id: currencies-route
+          uri: ${microservices.currency-url} # Порт 8081 внутри своего контейнера
+          predicates:
+            - Path=/aggregate/v1/currencies/**
+          #  - Method=GET,POST,PUT,DELETE  # поддерживаемые HTTP методы
+          #  - Header=X-API-VERSION, v1
+
+        # 3. Роутинг на сервис Кредитных Карт
+        - id: credit-cards-route
+          uri: ${microservices.credit-cards-url} # ИМЯ КОНТЕЙНЕРА вместо localhost!
+          predicates:
+            - Path=/aggregate/v1/credit-cards/**
+
+        # 4. Сервис Платежей (Payments) — Участник Саги
+        - id: payments-route
+          uri: ${microservices.payments-url}
+          predicates:
+            - Path=/aggregate/v1/payments/**
+
+        # 5. Сервис Мониторинга (Monitoring)
+        - id: monitoring-route
+          uri: ${microservices.monitoring-url}
+          predicates:
+            - Path=/aggregate/v1/monitoring/**
+
+resilience4j:
+  retry:
+    instances:
+      userServiceRetry:
+        max-attempts: 3
+        wait-duration: 500ms
+      currencyServiceRetry:
+        max-attempts: 3                        # Сколько всего попыток сделать (1 исходная + 2 повтора)
+        wait-duration: 500ms                   # Пауза между попытками (полсекунды)
+        # >>> ВКЛЮЧАЕМ ЭКСПОНЕНЦИАЛЬНУЮ ПАУЗУ <<<
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2      # Множитель (каждая следующая пауза в 2 раза дольше)
+        retry-exceptions:                      # При каких ошибках пытаться снова
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  circuitbreaker:
+    instances:
+      userServiceCB:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+      currencyServiceCB:
+        sliding-window-size: 10                # Анализировать последние 10 запросов
+        failure-rate-threshold: 50             # Размыкать цепь, если 50% запросов упали (5 из 10)
+        wait-duration-in-open-state: 15000ms   # Жвать 15 секунд в открытом состоянии перед проверкой
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        minimum-number-of-calls: 5
+
+management:
+  health:
+    r2dbc:
+      enabled: false
+
+server:
+  port: 8088
+
