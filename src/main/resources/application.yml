@@ -1,12 +1,12 @@
 
 # Список микросервисов, на которые будет перенаправлять запросы API Gateway.
 microservices:
-  oauth2-url: ${OAUTH2_SERVICE_URL:http://oauth2-container:8090}
-  currency-url: ${CURRENCIES_SERVICE_URL:http://currencies-container:8091}
-  credit-cards-url: ${CREDIT_CARD_SERVICE_URL:http://credit-card-container:8092}
-  payments-url: ${PAYMENTS_SERVICE_URL:http://payments-container:8093}
-  monitoring-url: ${MONITORING_SERVICE_URL:http://monitoring-container:8094}
-  aggregate-url: ${AGGREGATE_SERVICE_URL:http://aggregate-container:8095}
+  oauth2-url: ${OAUTH2_SERVICE_URL:http://oauth2-container:8091}
+  currency-url: ${CURRENCIES_SERVICE_URL:http://currencies-container:8092}
+  credit-cards-url: ${CREDIT_CARD_SERVICE_URL:http://credit-card-container:8093}
+  payments-url: ${PAYMENTS_SERVICE_URL:http://payments-container:8094}
+  monitoring-url: ${MONITORING_SERVICE_URL:http://monitoring-container:8095}
+  aggregate-url: ${AGGREGATE_SERVICE_URL:http://aggregate-container:8096}
 
 spring:
   application:
@@ -27,7 +27,7 @@ spring:
           # Перенаправляем на имя докер-контейнера сервиса авторизации
           uri: ${microservices.oauth2-url}
           predicates:
-            - Path=/aggregate/v1/auth/**, /oauth2/**
+            - Path=/aggregate/v1/users/**
           #  - Method=GET,POST
           #  - Header=X-API-VERSION, v2     # Дополнительные настройки безопасности: шлюз вернет ошибку 404 Not Found.
           # Он откажется перенаправлять запрос, пока вы принудительно не добавите в HTTP-заголовки (Headers) строчку X-API-VERSION: v1.
@@ -42,7 +42,7 @@ spring:
           #  - Method=GET,POST,PUT,DELETE  # поддерживаемые HTTP методы
           #  - Header=X-API-VERSION, v1
 
-        # 3. Роутинг на сервис Кредитных Карт
+        # 3. Роутинг на сервис Кредитных Карт (Credit-Cards)
         - id: credit-cards-route
           uri: ${microservices.credit-cards-url} # ИМЯ КОНТЕЙНЕРА вместо localhost!
           predicates:
@@ -98,5 +98,5 @@ management:
       enabled: false
 
 server:
-  port: 8088
+  port: 8096
 
